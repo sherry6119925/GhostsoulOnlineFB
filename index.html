@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>打地鼠小遊戲</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+    background: linear-gradient(160deg, #7ec850 0%, #4e9a2f 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: #2b3a17;
+  }
+  .game {
+    background: #fdf6e3;
+    border-radius: 24px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    padding: 28px 28px 34px;
+    width: 100%;
+    max-width: 480px;
+    text-align: center;
+  }
+  h1 { font-size: 26px; margin-bottom: 4px; color: #3d6b1f; }
+  .subtitle { font-size: 13px; color: #7a8a5f; margin-bottom: 18px; }
+  .stats {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 18px;
+  }
+  .stat {
+    background: #eef3d8;
+    border-radius: 14px;
+    padding: 10px 16px;
+    min-width: 110px;
+  }
+  .stat .label { font-size: 12px; color: #7a8a5f; }
+  .stat .value { font-size: 26px; font-weight: 700; color: #3d6b1f; }
+  .timer-danger .value { color: #d94f2b; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .hole {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    background: radial-gradient(ellipse at center bottom, #6b4423 0%, #4a2f18 70%);
+    border-radius: 50% 50% 45% 45%;
+    overflow: hidden;
+    cursor: pointer;
+    box-shadow: inset 0 -6px 12px rgba(0,0,0,0.4);
+  }
+  .hole::after {
+    content: "";
+    position: absolute;
+    bottom: 0; left: 8%;
+    width: 84%; height: 22%;
+    background: rgba(0,0,0,0.35);
+    border-radius: 50%;
+    z-index: 3;
+  }
+  .mole {
+    position: absolute;
+    bottom: -100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 62%;
+    transition: bottom 0.12s ease-out;
+    z-index: 2;
+    -webkit-user-select: none;
+    user-select: none;
+    pointer-events: none;
+  }
+  .hole.up .mole { bottom: 8%; }
+  .btn {
+    background: #e8622c;
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    padding: 14px 40px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #b8481c;
+    transition: transform 0.05s;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #b8481c; }
+  .btn:disabled { background: #b7b7b7; box-shadow: 0 4px 0 #8f8f8f; cursor: not-allowed; }
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .overlay.show { display: flex; }
+  .result {
+    background: #fdf6e3;
+    border-radius: 20px;
+    padding: 30px 26px;
+    max-width: 380px;
+    width: 100%;
+    text-align: center;
+  }
+  .result h2 { font-size: 24px; color: #3d6b1f; margin-bottom: 14px; }
+  .result .big { font-size: 48px; font-weight: 800; color: #e8622c; line-height: 1.1; }
+  .result .rank {
+    font-size: 18px;
+    margin: 16px 0 6px;
+    color: #2b3a17;
+  }
+  .result .rank b { color: #d94f2b; font-size: 24px; }
+  .board {
+    text-align: left;
+    margin: 18px 0;
+    background: #eef3d8;
+    border-radius: 12px;
+    padding: 12px 14px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .board .row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 4px;
+    font-size: 14px;
+    border-bottom: 1px dashed #c8d4a0;
+  }
+  .board .row:last-child { border-bottom: none; }
+  .board .row.me { background: #ffe6b3; border-radius: 8px; font-weight: 700; }
+  .name-box { margin-bottom: 16px; }
+  .name-box label { display: block; font-size: 13px; color: #7a8a5f; margin-bottom: 6px; }
+  .name-box input {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 16px;
+    border: 2px solid #c8d4a0;
+    border-radius: 12px;
+    background: #fff;
+    color: #2b3a17;
+    text-align: center;
+    outline: none;
+  }
+  .name-box input:focus { border-color: #7ec850; }
+  .board .rk { color: #7a8a5f; width: 30px; }
+  .board .sc { color: #3d6b1f; font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="game">
+    <h1>🔨 打地鼠小遊戲</h1>
+    <p class="subtitle">在 15 秒內盡量敲打冒出來的地鼠！</p>
+    <div class="stats">
+      <div class="stat"><div class="label">得分</div><div class="value" id="score">0</div></div>
+      <div class="stat" id="timerBox"><div class="label">剩餘時間</div><div class="value" id="timer">15</div></div>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="name-box">
+      <label for="nickname">輸入你的昵稱後開始遊戲</label>
+      <input type="text" id="nickname" maxlength="12" placeholder="例：小明">
+    </div>
+    <button class="btn" id="startBtn">開始遊戲</button>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="result">
+      <h2>遊戲結束！</h2>
+      <div class="big"><span id="finalScore">0</span> 隻</div>
+      <div class="rank">你這一局排名：第 <b id="rankNum">-</b> 名 / 共 <span id="rankTotal">-</span> 人</div>
+      <div class="board" id="board"></div>
+      <button class="btn" id="againBtn">再玩一次</button>
+    </div>
+  </div>
+
+<script>
+const MOLE_IMG = "data:image/png;base64,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";
+const HIT_IMG  = "data:image/png;base64,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";
+const GAME_TIME = 15;
+const HOLES = 9;
+const LB_KEY = "whack_a_mole_leaderboard";
+// ★ 部署 Google Apps Script 後，把發佈得到的網址貼在下面引號中（保留引號）。
+// 例如："https://script.google.com/macros/s/AKfy....../exec"
+// 若留空，會自動改用瀏覽器本機紀錄（僅單機可見）。
+const API_URL = "https://script.google.com/macros/s/AKfycbxEaaOdDbZVYCIN-PhVKu_Ij9EqPnBC72L6AOEFIotTXdVTK4ofeyupQ7OQR8hha5I58Q/exec";
+
+const grid = document.getElementById("grid");
+const scoreEl = document.getElementById("score");
+const timerEl = document.getElementById("timer");
+const timerBox = document.getElementById("timerBox");
+const startBtn = document.getElementById("startBtn");
+const againBtn = document.getElementById("againBtn");
+const overlay = document.getElementById("overlay");
+const finalScoreEl = document.getElementById("finalScore");
+const rankNumEl = document.getElementById("rankNum");
+const rankTotalEl = document.getElementById("rankTotal");
+const boardEl = document.getElementById("board");
+const nicknameEl = document.getElementById("nickname");
+let playerName = "玩家";
+
+let holes = [];
+let score = 0;
+let timeLeft = GAME_TIME;
+let running = false;
+let popTimer = null;
+let countdown = null;
+
+// build holes
+for (let i = 0; i < HOLES; i++) {
+  const hole = document.createElement("div");
+  hole.className = "hole";
+  const mole = document.createElement("img");
+  mole.className = "mole";
+  mole.src = MOLE_IMG;
+  mole.alt = "mole";
+  hole.appendChild(mole);
+  hole.addEventListener("click", () => whack(hole, mole));
+  grid.appendChild(hole);
+  holes.push({ hole, mole, up: false, hittable: false });
+}
+
+function whack(hole, mole) {
+  if (!running) return;
+  const h = holes.find(x => x.hole === hole);
+  if (!h.up || !h.hittable) return;
+  h.hittable = false;
+  score++;
+  scoreEl.textContent = score;
+  mole.src = HIT_IMG;
+  setTimeout(() => {
+    hole.classList.remove("up");
+    h.up = false;
+    setTimeout(() => { mole.src = MOLE_IMG; }, 150);
+  }, 220);
+}
+
+function popRandom() {
+  const down = holes.filter(h => !h.up);
+  if (down.length === 0) return;
+  const h = down[Math.floor(Math.random() * down.length)];
+  h.up = true;
+  h.hittable = true;
+  h.mole.src = MOLE_IMG;
+  h.hole.classList.add("up");
+  const stay = 700 + Math.random() * 600;
+  setTimeout(() => {
+    if (h.up) {
+      h.hole.classList.remove("up");
+      h.up = false;
+      h.hittable = false;
+    }
+  }, stay);
+}
+
+function scheduleNext() {
+  if (!running) return;
+  popRandom();
+  const delay = 500 + Math.random() * 450;
+  popTimer = setTimeout(scheduleNext, delay);
+}
+
+function startGame() {
+  const nm = (nicknameEl.value || "").trim();
+  if (!nm) {
+    nicknameEl.focus();
+    nicknameEl.style.borderColor = "#d94f2b";
+    nicknameEl.placeholder = "請先輸入昵稱！";
+    return;
+  }
+  nicknameEl.style.borderColor = "";
+  playerName = nm;
+  score = 0;
+  timeLeft = GAME_TIME;
+  running = true;
+  scoreEl.textContent = "0";
+  timerEl.textContent = GAME_TIME;
+  timerBox.classList.remove("timer-danger");
+  startBtn.disabled = true;
+  overlay.classList.remove("show");
+  holes.forEach(h => { h.up = false; h.hittable = false; h.hole.classList.remove("up"); h.mole.src = MOLE_IMG; });
+
+  scheduleNext();
+  countdown = setInterval(() => {
+    timeLeft--;
+    timerEl.textContent = timeLeft;
+    if (timeLeft <= 5) timerBox.classList.add("timer-danger");
+    if (timeLeft <= 0) endGame();
+  }, 1000);
+}
+
+async function endGame() {
+  running = false;
+  clearInterval(countdown);
+  clearTimeout(popTimer);
+  holes.forEach(h => { h.hole.classList.remove("up"); h.up = false; h.hittable = false; });
+  startBtn.disabled = false;
+
+  finalScoreEl.textContent = score;
+  overlay.classList.add("show");
+
+  if (API_URL) {
+    rankNumEl.textContent = "…";
+    rankTotalEl.textContent = "…";
+    boardEl.innerHTML = '<div style="text-align:center;padding:14px;color:#7a8a5f;">排行榜載入中…</div>';
+    try {
+      const board = await submitScoreRemote(playerName, score);
+      showResult(board);
+    } catch (err) {
+      const board = submitScoreLocal(playerName, score);
+      showResult(board);
+      const tip = document.createElement("div");
+      tip.style.cssText = "text-align:center;padding:6px;color:#d94f2b;font-size:12px;";
+      tip.textContent = "❗ 雲端排行榜連線失敗，目前顯示的是本機紀錄";
+      boardEl.prepend(tip);
+    }
+  } else {
+    const board = submitScoreLocal(playerName, score);
+    showResult(board);
+  }
+}
+
+function showResult(board) {
+  board = board.slice().sort((a, b) => b.score - a.score || a.time - b.time);
+  const total = board.length;
+  const myIndex = board.findIndex(e => (e.name || "") === playerName);
+  const myScore = myIndex >= 0 ? board[myIndex].score : score;
+  const rank = 1 + board.filter(e => e.score > myScore).length;
+  rankNumEl.textContent = rank;
+  rankTotalEl.textContent = total;
+  renderBoard(board.slice(0, 10), myIndex);
+}
+
+async function submitScoreRemote(name, sc) {
+  // 使用 text/plain 避免 Apps Script 的 CORS preflight 問題
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ name: name, score: sc })
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "server error");
+  return data.board || [];
+}
+
+function submitScoreLocal(name, sc) {
+  let board = loadBoard();
+  const prev = board.find(e => (e.name || "") === name);
+  let entry;
+  if (prev && prev.score >= sc) {
+    entry = prev;
+  } else {
+    entry = { name: name, score: sc, time: Date.now() };
+  }
+  board = board.filter(e => (e.name || "") !== name);
+  board.push(entry);
+  board.sort((a, b) => b.score - a.score || a.time - b.time);
+  localStorage.setItem(LB_KEY, JSON.stringify(board.slice(0, 50)));
+  return board;
+}
+
+function loadBoard() {
+  try { return JSON.parse(localStorage.getItem(LB_KEY)) || []; }
+  catch (e) { return []; }
+}
+
+function renderBoard(list, myIndex) {
+  boardEl.innerHTML = "";
+  let ranks = [];
+  for (let i = 0; i < list.length; i++) {
+    if (i > 0 && list[i].score === list[i - 1].score) ranks.push(ranks[i - 1]);
+    else ranks.push(i + 1);
+  }
+  list.forEach((e, i) => {
+    const rk = ranks[i];
+    const row = document.createElement("div");
+    row.className = "row" + (i === myIndex ? " me" : "");
+    const medal = rk === 1 ? "🥇" : rk === 2 ? "🥈" : rk === 3 ? "🥉" : rk;
+    row.innerHTML = '<span class="rk">' + medal + '</span>' +
+                    '<span>' + escapeHtml(e.name || "玩家") + (i === myIndex ? " (本局)" : "") + '</span>' +
+                    '<span class="sc">' + e.score + ' 隻</span>';
+    boardEl.appendChild(row);
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+startBtn.addEventListener("click", startGame);
+againBtn.addEventListener("click", startGame);
+nicknameEl.addEventListener("keydown", e => { if (e.key === "Enter") startGame(); });
+</script>
+</body>
+</html>
