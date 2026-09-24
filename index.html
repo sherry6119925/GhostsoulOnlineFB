@@ -339,15 +339,18 @@ function showResult(board) {
 }
 
 async function submitScoreRemote(name, sc) {
-  // 使用 text/plain 避免 Apps Script 的 CORS preflight 問題
-  const res = await fetch(API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ name: name, score: sc })
-  });
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || "server error");
-  return data.board || [];
+  // 用簡單 GET 請求（避免 CORS preflight），並加上逾時保護，避免永遠卡在「載入中」
+  var url = API_URL + "?name=" + encodeURIComponent(name) + "&score=" + encodeURIComponent(sc);
+  var ctrl = new AbortController();
+  var timer = setTimeout(function () { ctrl.abort(); }, 12000);
+  try {
+    const res = await fetch(url, { method: "GET", signal: ctrl.signal });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "server error");
+    return data.board || [];
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function submitScoreLocal(name, sc) {
